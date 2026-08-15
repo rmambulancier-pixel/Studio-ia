@@ -948,6 +948,7 @@ Aucune explication ni texte d'introduction n'est autorisé. Le fichier doit êtr
         max_tokens: 4096,
         system: systemPrompts[mode],
         messages: conv.messages,
+       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
         stream: true
       })
     });
