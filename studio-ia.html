@@ -326,7 +326,7 @@
     <div class="input-wrapper">
       <label class="btn-icon" title="Joindre un fichier">
         &#128206;
-        <input type="file" id="file-redaction" accept="image/*,application/pdf,text/plain,text/csv" style="display:none;">
+        <input type="file" id="file-redaction" accept="*/*" style="display:none;">
       </label>
       <textarea id="input-redaction" placeholder="Posez votre question…" rows="1"></textarea>
       <button class="btn-send" id="send-redaction">Envoyer</button>
@@ -353,7 +353,7 @@
     <div class="input-wrapper">
       <label class="btn-icon" title="Joindre un fichier">
         &#128206;
-        <input type="file" id="file-code" accept="image/*,application/pdf,text/plain,text/csv" style="display:none;">
+        <input type="file" id="file-code" accept="*/*" style="display:none;">
       </label>
       <textarea id="input-code" placeholder="Décrivez l'application à générer…" rows="1"></textarea>
       <button class="btn-send" id="send-code">Générer</button>
@@ -782,26 +782,42 @@ Aucune explication ni texte d'introduction n'est autorisé. Le fichier doit êtr
       });
     }
 
-    if (file.type === 'text/plain' || file.type === 'text/csv') {
+    const maxSize = 25 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showToast('Fichier trop volumineux (25 Mo max)', 'warn');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/xml') {
       reader.onload = function (e) {
-        currentFile = { type: 'text', data: `\n\n--- Contenu du fichier ${file.name} ---\n${e.target.result}\n--- Fin du fichier ---\n` };
+        currentFile = {
+          type: 'text',
+          data: `\n\n--- Contenu du fichier ${file.name} ---\n${e.target.result}\n--- Fin du fichier ---\n`
+        };
         renderRemovable(`<div class="doc-thumb">&#128196; ${escapeHtml(file.name)}</div>`);
       };
       reader.readAsText(file);
     } else {
       reader.onload = function (e) {
         const base64Full = e.target.result;
-        const mediaType = base64Full.split(';')[0].split(':')[1];
+        const mediaType = (base64Full.split(';')[0].split(':')[1]) || file.type || 'application/octet-stream';
         const base64Data = base64Full.split(',')[1];
 
-        if (mediaType === 'application/pdf') {
-          currentFile = { type: 'document', mediaType, data: base64Data };
-          renderRemovable(`<div class="doc-thumb">&#128209; ${escapeHtml(file.name)}</div>`);
-        } else if (mediaType.startsWith('image/')) {
+        if (mediaType.startsWith('image/')) {
           currentFile = { type: 'image', mediaType, data: base64Data };
           renderRemovable(`<img src="${base64Full}" class="thumb" alt="Fichier joint">`);
+        } else if (mediaType === 'application/pdf') {
+          currentFile = { type: 'document', mediaType, data: base64Data };
+          renderRemovable(`<div class="doc-thumb">&#128209; ${escapeHtml(file.name)}</div>`);
         } else {
-          showToast('Type de fichier non pris en charge', 'warn');
+          currentFile = {
+            type: 'binary',
+            mediaType,
+            fileName: file.name,
+            data: base64Data
+          };
+          renderRemovable(`<div class="doc-thumb">&#128193; ${escapeHtml(file.name)}</div>`);
         }
       };
       reader.readAsDataURL(file);
